@@ -13,7 +13,7 @@
    "id": "57945f2b-223a-4eff-ba2c-fcdbe1985205",
    "metadata": {},
    "source": [
-    "# Build a Classifyer to predict diabetes and evaluate Features via shap-values\n",
+    "# Build a Classifieer to predict diabetes and evaluate Features via shap-values\n",
     "<br> \n",
     "<b>Source: </b>https://www.kaggle.com/datasets/nanditapore/healthcare-diabetes/\n",
     "<br>\n",
@@ -131,6 +131,34 @@
     "\n",
     "# model evaluation\n",
     "print(classification_report(y_test, y_pred))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "45bd9001-0770-4e22-8a98-76860f5c22b1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#TODO: interpretation"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "25d11e83-be0c-48e0-8c1d-1b101754f54b",
+   "metadata": {},
+   "source": [
+    "## Feature importance"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fca1fcbd-97c2-4f67-8c3c-be73f50573a7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# todo: shaply"
    ]
   }
  ],
