@@ -1,0 +1,158 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "815504a4-095f-44a4-a8e5-97c945a9850c",
+   "metadata": {},
+   "source": [
+    "Project: DataSc_predict_explain_diabetes       -       Creator: Benjamin Gaube       -        Date: 2024-07-14"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "57945f2b-223a-4eff-ba2c-fcdbe1985205",
+   "metadata": {},
+   "source": [
+    "# Build a Classifyer to predict diabetes and evaluate Features via shap-values\n",
+    "<br> \n",
+    "<b>Source: </b>https://www.kaggle.com/datasets/nanditapore/healthcare-diabetes/\n",
+    "<br>\n",
+    "<b>Preliminary considerations: </b> I decided based on the analisys in 01_analyze_data.ipynb do drop the feature pregnancies. Also I further differenciated with a deterministic rule the target into healthy, diabetes type I and diabetes type II.\n",
+    "<br>\n",
+    "<b>Purpose: </b> Creation of a gender-neutral classifier for healthy individuals, type I and type II diabetics. In addition, evaluation of the relevance of the features (using shap-values) in order to differentiate between these diseases without insulin use.\n",
+    "<br>\n",
+    "<b>Classifier: </b>Since I lost a lot of data in the cleaning process, a neural network would be inappropriate. With three targets, I cannot use binary classifiers such as logistic regression. A obvious solution would be a simple decision tree. But with seven features, an ensemble method is more appropriate. Since I have no categorical features, I don't need to consider LightGBM or CutBoost and will opt for a normal random forest."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c8749f36-3efd-4d9b-94d1-6591c7a61059",
+   "metadata": {},
+   "source": [
+    "## Librarys and Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "dfc90904-eb7f-40ad-86f1-2846f9905b55",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.ensemble import RandomForestClassifier\n",
+    "from sklearn.metrics import classification_report"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "60e5ef29-2676-4d5b-b361-91805eae82d6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# as finaly decided in 01_analyze_data.ipynb\n",
+    "\n",
+    "df = pd.read_csv(r'..\\..\\data\\Healthcare_Diabetes_Dataset\\Healthcare-Diabetes.csv')\n",
+    "df = df.query('Glucose != 0 and BloodPressure != 0 and SkinThickness != 0 and BMI != 0')\n",
+    "df = df.drop_duplicates(subset=df.columns.difference(['Id']), keep='first')\n",
+    "df = df.drop(columns=['Pregnancies'])\n",
+    "df.loc[:,'Outcome_dif'] = np.select([(df['Outcome'] == 1) & (df['Insulin'] > 20), (df['Outcome'] == 1) & (df['Insulin'] <= 20)], ['type_II', 'type_I'], default='healthy')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "efe3cabf-dd2f-421a-8a4f-d6eaa2a83dce",
+   "metadata": {},
+   "source": [
+    "## Random Forest"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "48773854-723d-4f44-ab13-b508dadcac70",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# split the features (X) and targets (y) int to differentiated by Target ((healhty, typ_I, type_II) )\n",
+    "# reason: get an equal 80:20 split across all subsets (healhty, typ_I, type_II) \n",
+    "\n",
+    "X_healthy = df[df['Outcome_dif'] == 'healthy'].drop(['Outcome', 'Id', 'Outcome_dif'], axis=1)\n",
+    "y_healthy = df[df['Outcome_dif'] == 'healthy']['Outcome_dif']\n",
+    "X_type_I = df[df['Outcome_dif'] == 'type_I'].drop(['Outcome', 'Id', 'Outcome_dif'], axis=1)\n",
+    "y_type_I = df[df['Outcome_dif'] == 'type_I']['Outcome_dif']\n",
+    "X_type_II = df[df['Outcome_dif'] == 'type_II'].drop(['Outcome', 'Id', 'Outcome_dif'], axis=1)\n",
+    "y_type_II = df[df['Outcome_dif'] == 'type_II']['Outcome_dif']"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "a3915e5e-b5f2-4750-a69a-878201c04451",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "              precision    recall  f1-score   support\n",
+      "\n",
+      "     healthy       0.81      0.83      0.82        72\n",
+      "      type_I       0.58      0.70      0.64        10\n",
+      "     type_II       0.70      0.59      0.64        27\n",
+      "\n",
+      "    accuracy                           0.76       109\n",
+      "   macro avg       0.70      0.71      0.70       109\n",
+      "weighted avg       0.76      0.76      0.76       109\n",
+      "\n"
+     ]
+    }
+   ],
+   "source": [
+    "# split each of the subsets (healhty, typ_I, type_II) into test and traingings data\n",
+    "X_train_healthy, X_test_healthy, y_train_healthy, y_test_healthy = train_test_split(X_healthy, y_healthy, test_size=0.2, random_state=123)\n",
+    "X_train_type_I, X_test_type_I, y_train_type_I, y_test_type_I = train_test_split(X_type_I, y_type_I, test_size=0.2, random_state=123)\n",
+    "X_train_type_II, X_test_type_II, y_train_type_II, y_test_type_II = train_test_split(X_type_II, y_type_II, test_size=0.2, random_state=123)\n",
+    "\n",
+    "# concatenate subsets (healhty, typ_I, type_II) of the trainings- and testdate\n",
+    "X_train = pd.concat([X_train_healthy, X_train_type_I, X_train_type_II])\n",
+    "X_test = pd.concat([X_test_healthy, X_test_type_I, X_test_type_II])\n",
+    "y_train = pd.concat([y_train_healthy, y_train_type_I, y_train_type_II])\n",
+    "y_test = pd.concat([y_test_healthy, y_test_type_I, y_test_type_II])\n",
+    "\n",
+    "#Initialize and train random forest model\n",
+    "rf_model = RandomForestClassifier(n_estimators=100, random_state=123)\n",
+    "rf_model.fit(X_train, y_train)\n",
+    "# prediction\n",
+    "y_pred = rf_model.predict(X_test)\n",
+    "\n",
+    "# model evaluation\n",
+    "print(classification_report(y_test, y_pred))"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.6"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
